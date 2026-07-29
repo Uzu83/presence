@@ -11,7 +11,7 @@ const PREFIX = "presence.keys.v1.";
 export type KeyBag = Record<ProviderId, string>;
 
 export function emptyKeys(): KeyBag {
-  return { openai: "", xai: "" };
+  return { openai: "", xai: "", google: "" };
 }
 
 export function loadKeys(): KeyBag {
@@ -19,6 +19,7 @@ export function loadKeys(): KeyBag {
   return {
     openai: localStorage.getItem(`${PREFIX}openai`) ?? "",
     xai: localStorage.getItem(`${PREFIX}xai`) ?? "",
+    google: localStorage.getItem(`${PREFIX}google`) ?? "",
   };
 }
 

@@ -6,7 +6,7 @@
 
 ## これは何か（3行以内）
 
-- **何を**: 自分の API クレジット（BYOK）で Grok / GPT と話し、資料プロジェクトとフルデュプレックス音声まで持つスマホ Web
+- **何を**: 自分の API クレジット（BYOK）で GPT Live / Gemini Live / Grok Voice と話し、資料プロジェクトまで持つスマホ Web
 - **誰に**: 複数モデルを使い分けたい個人・小さなチーム
 - **なぜ**: ベンダー単体 UI でも IDE でもない「会話クライアント」が必要。通話同席はその延長
 
@@ -23,8 +23,9 @@
 
 - BYOK: キーは localStorage。`/api/chat` と `/api/voice/ephemeral` は都度ヘッダ転送のみ（永続化禁止）
 - プロジェクト/会話: IndexedDB（端末ローカル）。クラウド同期はまだやらない
-- Voice: ephemeral token → ブラウザ WebSocket（`xai-client-secret.` protocol）+ `web_search` 常時
-- 「調べて」系: Voice はモデル tools、テキストは `hasSearchIntent` → Responses API + web_search
+- Voice 三本柱: GPT Live (OpenAI Realtime) / Gemini Live / Grok Voice
+- Voice 認証: OpenAI・xAI は ephemeral、Gemini は query `key=`（ブラウザ制約の妥協）
+- 「調べて」系: Voice は各社 tools、テキストは `hasSearchIntent` → Responses API + web_search
 - Discord / Meet / Zoom 同席はロードマップ。同じ音声パイプの延長として設計する
 
 ## 地雷マップ

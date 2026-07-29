@@ -18,8 +18,8 @@
 1. BYOK: OpenAI / xAI キーを端末ローカルに保存。サーバはキーを永続化しない薄いプロキシのみ。
 2. テキスト会話: モデル切替 + SSE ストリーミング。
 3. プロジェクト: ファイルを端末（IndexedDB）に保存し、会話コンテキストに載せる（NotebookLM 風）。
-4. 音声: Grok Voice（`wss://api.x.ai/v1/realtime`）への接続 UI。キー未設定時はセットアップ導線。
-4b. 「調べて」検索: Voice は `web_search` ツール、テキストは意図検知 → Responses API。
+4. 音声三本柱: GPT Live / Gemini Live / Grok Voice（エンジン切替 UI）。
+4b. 「調べて」検索: Voice は各社 tools、テキストは意図検知 → Responses API。
 5. モバイル UX: ボトムナビ、大きなタップ領域、PWA マニフェスト、safe-area。
 6. ロードマップ面: Discord / Meet / Zoom「同席」は説明と待ちリストのみ（実装は別フェーズ）。
 

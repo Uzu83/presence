@@ -51,20 +51,28 @@ export async function POST(req: Request) {
     return new Response("voice models use /api/voice", { status: 400 });
   }
 
+  if (model.provider === "google") {
+    return new Response("Google は Live 音声のみ対応（テキストは次フェーズ）", {
+      status: 400,
+    });
+  }
+
   if (providerHeader && providerHeader !== model.provider) {
     return new Response("provider mismatch", { status: 400 });
   }
 
+  const chatProvider = model.provider;
+
   if (body.search) {
     return proxySearchResponses({
       auth,
-      provider: model.provider,
+      provider: chatProvider,
       modelId: body.model,
       messages: body.messages,
     });
   }
 
-  const upstream = await fetch(PROVIDER_CHAT_URL[model.provider], {
+  const upstream = await fetch(PROVIDER_CHAT_URL[chatProvider], {
     method: "POST",
     headers: {
       Authorization: auth,

@@ -33,7 +33,7 @@ export function SettingsPanel() {
       </p>
 
       <div className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm leading-relaxed text-paper">
-        ChatGPT Plus や SuperGrok の
+        ChatGPT Plus / Gemini Advanced / SuperGrok の
         <strong className="text-amber">サブスク料金そのもの</strong>は API
         と別です。Presence は各社の API クレジット（キー）を使います。
       </div>
@@ -44,13 +44,19 @@ export function SettingsPanel() {
             id: "openai" as const,
             label: "OpenAI",
             placeholder: "sk-...",
-            help: "platform.openai.com で発行",
+            help: "platform.openai.com · GPT Live / テキスト",
+          },
+          {
+            id: "google" as const,
+            label: "Google AI",
+            placeholder: "AIza...",
+            help: "aistudio.google.com · Gemini Live",
           },
           {
             id: "xai" as const,
             label: "xAI (Grok)",
             placeholder: "xai-...",
-            help: "console.x.ai で発行 · Voice もこちら",
+            help: "console.x.ai · Grok Voice / テキスト",
           },
         ] as const
       ).map((p) => (
@@ -91,8 +97,8 @@ export function SettingsPanel() {
         </p>
         <ul className="mt-4 space-y-2 text-sm text-paper">
           <li className="rounded-xl border border-line bg-panel/50 px-3 py-3">
-            <span className="text-signal">今</span> · スマホ Web / PWA · BYOK
-            会話 · 資料 · Grok Voice
+            <span className="text-signal">今</span> · GPT Live · Gemini Live ·
+            Grok Voice · BYOK · 資料 · 「調べて」検索
           </li>
           <li className="rounded-xl border border-line bg-panel/30 px-3 py-3 text-mist">
             次 · Discord VC 同席 bot

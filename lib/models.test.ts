@@ -8,7 +8,9 @@ describe("models", () => {
     expect(providers.has("xai")).toBe(true);
   });
 
-  it("includes grok voice as voice mode", () => {
+  it("includes the triple live stack as voice mode", () => {
+    expect(getModel("gpt-live").mode).toBe("voice");
+    expect(getModel("gemini-live").mode).toBe("voice");
     expect(getModel("grok-voice").mode).toBe("voice");
   });
 
