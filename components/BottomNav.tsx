@@ -17,6 +17,11 @@ const ITEMS = [
     match: (p: string) => p.startsWith("/app/voice"),
   },
   {
+    href: "/app/billing",
+    label: "プラン",
+    match: (p: string) => p.startsWith("/app/billing"),
+  },
+  {
     href: "/app/settings",
     label: "設定",
     match: (p: string) => p.startsWith("/app/settings"),
@@ -31,7 +36,7 @@ export function BottomNav() {
       className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-fog/90 backdrop-blur-md"
       aria-label="メイン"
     >
-      <ul className="mx-auto grid max-w-lg grid-cols-4 px-2 pt-2">
+      <ul className="mx-auto grid max-w-lg grid-cols-5 px-1 pt-2">
         {ITEMS.map((item) => {
           const active = item.match(pathname);
           return (
@@ -39,13 +44,13 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 className={clsx(
-                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-xs font-medium transition-colors",
+                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium transition-colors",
                   active ? "text-amber" : "text-mist hover:text-paper",
                 )}
               >
                 <span
                   className={clsx(
-                    "h-1 w-6 rounded-full transition-colors",
+                    "h-1 w-5 rounded-full transition-colors",
                     active ? "bg-amber" : "bg-transparent",
                   )}
                   aria-hidden

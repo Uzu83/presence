@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { BILLING_TAGLINE } from "@/lib/billing-copy";
 
 export default function HomePage() {
   return (
@@ -27,6 +28,9 @@ export default function HomePage() {
           GPT Live · Gemini Live · Grok
           Voice。資料付き会話と「調べて」検索を、スマホから。
         </p>
+        <p className="animate-rise-delay mt-3 max-w-[36ch] text-xs leading-relaxed text-mist/90">
+          {BILLING_TAGLINE}
+        </p>
 
         <div className="mt-auto flex flex-col gap-3 pt-16">
           <Link
@@ -43,6 +47,21 @@ export default function HomePage() {
           </Link>
           <p className="text-center text-xs text-mist/80">
             ホーム画面に追加してアプリのように使えます
+          </p>
+          <p className="text-center text-xs text-mist/70">
+            <Link
+              href="/legal/terms"
+              className="underline-offset-2 hover:underline"
+            >
+              利用規約
+            </Link>
+            {" · "}
+            <Link
+              href="/legal/privacy"
+              className="underline-offset-2 hover:underline"
+            >
+              プライバシー
+            </Link>
           </p>
         </div>
       </div>

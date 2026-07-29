@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import { listFiles, listMessages, listProjects } from "@/lib/idb";
 import { useAppStore } from "@/store/app-store";
+import { usePlanStore } from "@/store/plan-store";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const activeProjectId = useAppStore((s) => s.activeProjectId);
@@ -11,6 +12,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setFiles = useAppStore((s) => s.setFiles);
   const setMessages = useAppStore((s) => s.setMessages);
   const setHydrated = useAppStore((s) => s.setHydrated);
+  const refreshPlan = usePlanStore((s) => s.refresh);
+
+  useEffect(() => {
+    void refreshPlan();
+  }, [refreshPlan]);
 
   useEffect(() => {
     let cancelled = false;

@@ -59,5 +59,6 @@
 
 ## 採用
 
-- Phase 0 は BYOK で実施  
-- プロダクト北極星と黒字化本線は **004 Hosted UX**  
+- Phase 0 は BYOK で実施（`docs/progress/device-qa.md`）  
+- 添付黒字化計画の Phase 1–2（legal / Pro BYOK）はコード実装済。Stripe env 設定後に本番課金が有効  
+- プロダクト UX 北極星の将来形は **004 Hosted**（クレジット）。成長順は **005**  

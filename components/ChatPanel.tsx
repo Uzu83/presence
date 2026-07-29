@@ -14,6 +14,7 @@ import { loadKeys } from "@/lib/keys";
 import { chatModels } from "@/lib/models";
 import { hasSearchIntent, SEARCH_POLICY_JA } from "@/lib/search-intent";
 import { useAppStore } from "@/store/app-store";
+import { usePlanStore } from "@/store/plan-store";
 
 const BASE_SYSTEM = [
   "あなたは Presence。簡潔で実務的なアシスタントです。ユーザーが日本語なら日本語で答える。",
@@ -32,6 +33,7 @@ export function ChatPanel() {
   const setModelId = useAppStore((s) => s.setModelId);
   const streaming = useAppStore((s) => s.streaming);
   const setStreaming = useAppStore((s) => s.setStreaming);
+  const searchEnabled = usePlanStore((s) => s.entitlements.searchEnabled);
 
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -61,9 +63,14 @@ export function ChatPanel() {
       return;
     }
 
+    const intentSearch = hasSearchIntent(text);
+    if (intentSearch && !searchEnabled) {
+      setError("「調べて」検索は Presence Pro で利用できます。プランタブへ。");
+      return;
+    }
     setError(null);
     setInput("");
-    const wantSearch = hasSearchIntent(text);
+    const wantSearch = intentSearch && searchEnabled;
     setSearching(wantSearch);
 
     const userMsg: ChatMessage = {
