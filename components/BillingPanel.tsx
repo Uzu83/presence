@@ -16,6 +16,7 @@ export function BillingPanel() {
   const planHydrated = usePlanStore((s) => s.hydrated);
 
   const balance = useCreditStore((s) => s.balance);
+  const nextExpiry = useCreditStore((s) => s.nextExpiry);
   const packs = useCreditStore((s) => s.packs);
   const creditsStripe = useCreditStore((s) => s.stripeConfigured);
   const hostedAvailable = useCreditStore((s) => s.hostedAvailable);
@@ -99,6 +100,14 @@ export function BillingPanel() {
         <p className="mt-1 font-display text-4xl tracking-wide text-paper">
           {balance}
         </p>
+        {nextExpiry && (
+          <p className="mt-1 text-xs text-amber">
+            次の失効:{" "}
+            {new Date(nextExpiry).toLocaleString("ja-JP", {
+              timeZone: "Asia/Tokyo",
+            })}
+          </p>
+        )}
         <p className="mt-2 text-xs leading-relaxed text-mist">
           {BILLING_CREDITS_HINT}
         </p>
@@ -147,10 +156,13 @@ export function BillingPanel() {
 
       {disclosures && (
         <section className="mt-5 space-y-1 text-[11px] leading-relaxed text-mist">
+          <p>{disclosures.issuerName}</p>
           <p>{disclosures.scope}</p>
           <p>{disclosures.expiry}</p>
           <p>{disclosures.refund}</p>
           <p>{disclosures.notCash}</p>
+          <p>{disclosures.meterNote}</p>
+          <p>{disclosures.contact}</p>
         </section>
       )}
 

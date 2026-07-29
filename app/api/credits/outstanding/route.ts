@@ -1,10 +1,11 @@
 import { getOutstandingCredits, ledgerBackend } from "@/lib/credits/ledger";
+import { OUTSTANDING_WARN_YEN } from "@/lib/credits/policy";
 
 export const runtime = "nodejs";
 
 /**
- * 未使用残高合計（自家型前払式の 1,000 万円警戒用モニタ）。
- * 簡易保護: CRON_SECRET or PRESENCE_ADMIN_SECRET。
+ * 有償ロットの未使用残高合計（自家型 1,000 万円警戒用）。
+ * 簡易保護: PRESENCE_ADMIN_SECRET or CRON_SECRET。
  */
 export async function GET(req: Request) {
   const secret =
@@ -16,14 +17,13 @@ export async function GET(req: Request) {
   }
 
   const outstanding = await getOutstandingCredits();
-  const yenApprox = outstanding; // 1 credit ≒ ¥1 の仮置き
-  const warnThresholdYen = 8_000_000; // 届出目安の手前で警告
+  const yenApprox = outstanding;
 
   return Response.json({
     outstandingCredits: outstanding,
     yenApprox,
-    warn: yenApprox >= warnThresholdYen,
+    warn: yenApprox >= OUTSTANDING_WARN_YEN,
     ledgerBackend: ledgerBackend(),
-    note: "法律意見ではない。基準日未使用残高のモニタ用。",
+    note: "有償ロットのみ。プロモ grant は含まない。法律意見ではない。",
   });
 }

@@ -1,9 +1,16 @@
 import { ensureWallet } from "@/lib/credits/ensure-wallet";
-import { getBalance, getDailyDebit, ledgerBackend } from "@/lib/credits/ledger";
+import {
+  getBalance,
+  getDailyDebit,
+  ledgerBackend,
+  listActiveLots,
+  nextExpiryIso,
+} from "@/lib/credits/ledger";
 import {
   hostedEnginesAvailable,
   hostedOpsConfigured,
 } from "@/lib/credits/ops-keys";
+import { CREDIT_DISCLOSURES } from "@/lib/credits/policy";
 import {
   HOSTED_CREDITS_PER_MINUTE,
   HOSTED_MAX_SESSION_MINUTES,
@@ -17,6 +24,8 @@ export async function GET() {
   const wallet = await ensureWallet();
   const balance = await getBalance(wallet.wid);
   const dailyDebit = await getDailyDebit(wallet.wid);
+  const nextExpiry = await nextExpiryIso(wallet.wid);
+  const lots = await listActiveLots(wallet.wid);
   const ops = hostedOpsConfigured();
   const engines = hostedEnginesAvailable();
 
@@ -32,6 +41,14 @@ export async function GET() {
     wid: wallet.wid,
     balance,
     dailyDebit,
+    nextExpiry,
+    lots: lots.map((l) => ({
+      id: l.id,
+      kind: l.kind,
+      remaining: l.remaining,
+      expiresAt: l.expiresAt,
+      priority: l.priority,
+    })),
     hostedAvailable: ops,
     hostedEngines: engines,
     ratesPerMinute: HOSTED_CREDITS_PER_MINUTE,
@@ -41,10 +58,13 @@ export async function GET() {
       stripeConfigured() || packs.some((p) => p.priceConfigured),
     ledgerBackend: ledgerBackend(),
     disclosures: {
-      scope: "クレジットは Presence の音声・テキスト役務にのみ使用できます。",
-      expiry: "購入クレジットの有効期限は購入日から 180 日です（規約参照）。",
-      refund: "原則として返金できません（法令に基づく場合を除く）。",
-      notCash: "現金の預かり・送金ではありません。",
+      issuerName: CREDIT_DISCLOSURES.issuerName,
+      scope: CREDIT_DISCLOSURES.scope,
+      expiry: CREDIT_DISCLOSURES.expiry,
+      refund: CREDIT_DISCLOSURES.refund,
+      notCash: CREDIT_DISCLOSURES.notCash,
+      contact: CREDIT_DISCLOSURES.contactPlaceholder,
+      meterNote: CREDIT_DISCLOSURES.meterNote,
     },
   });
 }

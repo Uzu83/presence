@@ -11,25 +11,32 @@ type CreditPackView = {
   priceConfigured: boolean;
 };
 
+type Disclosures = {
+  issuerName: string;
+  scope: string;
+  expiry: string;
+  refund: string;
+  notCash: string;
+  contact: string;
+  meterNote: string;
+};
+
 type CreditState = {
   balance: number;
+  nextExpiry: string | null;
   hostedAvailable: boolean;
   hostedEngines: LiveEngineId[];
   ratesPerMinute: Partial<Record<LiveEngineId, number>>;
   packs: CreditPackView[];
   stripeConfigured: boolean;
-  disclosures: {
-    scope: string;
-    expiry: string;
-    refund: string;
-    notCash: string;
-  } | null;
+  disclosures: Disclosures | null;
   hydrated: boolean;
   refresh: () => Promise<void>;
 };
 
 export const useCreditStore = create<CreditState>((set) => ({
   balance: 0,
+  nextExpiry: null,
   hostedAvailable: false,
   hostedEngines: [],
   ratesPerMinute: {},
@@ -43,15 +50,17 @@ export const useCreditStore = create<CreditState>((set) => ({
       if (!res.ok) throw new Error("credits me failed");
       const data = (await res.json()) as {
         balance: number;
+        nextExpiry: string | null;
         hostedAvailable: boolean;
         hostedEngines: LiveEngineId[];
         ratesPerMinute: Partial<Record<LiveEngineId, number>>;
         packs: CreditPackView[];
         stripeConfigured: boolean;
-        disclosures: CreditState["disclosures"];
+        disclosures: Disclosures;
       };
       set({
         balance: data.balance,
+        nextExpiry: data.nextExpiry,
         hostedAvailable: data.hostedAvailable,
         hostedEngines: data.hostedEngines,
         ratesPerMinute: data.ratesPerMinute,

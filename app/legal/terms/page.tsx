@@ -16,14 +16,16 @@ export default function TermsPage() {
       <ul className="mt-6 list-disc space-y-2 pl-5 text-sm leading-relaxed text-mist">
         <li>
           Hosted クレジットは Presence
-          の音声・テキスト役務の対価です。現金の預かり・送金ではありません。
+          の音声・テキスト役務の対価です。現金の預かり・送金・利息付き貯蓄ではありません。第三者への支払いや換金はできません。
         </li>
         <li>{BILLING_CREDITS_HINT}</li>
         <li>
-          購入クレジットの有効期限は購入日から 180
-          日です。原則として返金できません（法令に基づく場合を除く）。
+          購入クレジットの有効期限は発行から6か月以内です。無償付与分はより短い期限です。原則として返金できません（法令に基づく場合を除く）。
         </li>
         <li>{BILLING_VOICE_WARNING}</li>
+        <li>
+          消費はサーバ側メータが正です。切断処理の遅延でわずかに超過計上されることがあります。
+        </li>
         <li>
           上級者向けに自分の API キー（BYOK）も利用できます。Presence Pro（
           {PRO_PRICE_LABEL}

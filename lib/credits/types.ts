@@ -3,7 +3,8 @@ export type CreditTxnType =
   | "debit_session"
   | "debit_chat"
   | "grant"
-  | "adjust";
+  | "adjust"
+  | "expire";
 
 export type CreditPackId = "starter" | "standard" | "plus";
 
@@ -44,3 +45,19 @@ export const CREDIT_PACKS: CreditPack[] = [
 export function packById(id: string): CreditPack | undefined {
   return CREDIT_PACKS.find((p) => p.id === id);
 }
+
+/** Stripe Credit Grant 相当のロット */
+export type CreditLot = {
+  id: string;
+  wid: string;
+  /** purchase = 有償（未使用残高モニタ対象） / grant = 無償 */
+  kind: "purchase" | "grant";
+  original: number;
+  remaining: number;
+  createdAt: string;
+  expiresAt: string;
+  /** 小さいほど先に消費 */
+  priority: number;
+  ref?: string;
+  note?: string;
+};
