@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { BillingNotice } from "@/components/BillingNotice";
-import { canUseLiveEngine } from "@/lib/entitlements";
+import { canUseLiveEngineMode } from "@/lib/entitlements";
 import { loadKeys } from "@/lib/keys";
 import {
   getLiveEngine,
@@ -15,6 +15,7 @@ import {
   floatTo16BitPCM,
   PcmPlayer,
 } from "@/lib/voice-audio";
+import { useCreditStore } from "@/store/credit-store";
 import { usePlanStore } from "@/store/plan-store";
 
 type Phase = "idle" | "connecting" | "live" | "error";
@@ -22,6 +23,14 @@ type Phase = "idle" | "connecting" | "live" | "error";
 type EphemeralResponse = {
   value?: string;
   client_secret?: { value?: string };
+};
+
+type HostedStart = {
+  sid: string;
+  engine: LiveEngineId;
+  secret?: string;
+  accessToken?: string;
+  error?: string;
 };
 
 function extractSecret(data: EphemeralResponse): string | null {
@@ -47,10 +56,15 @@ function isSearchEvent(type: string): boolean {
 
 export function VoicePanel() {
   const plan = usePlanStore((s) => s.plan);
+  const balance = useCreditStore((s) => s.balance);
+  const hostedAvailable = useCreditStore((s) => s.hostedAvailable);
+  const hostedEngines = useCreditStore((s) => s.hostedEngines);
+  const refreshCredits = useCreditStore((s) => s.refresh);
+
   const [engineId, setEngineId] = useState<LiveEngineId>("grok-voice");
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState(
-    "GPT Live / Gemini Live / Grok Voice。選んで話す。",
+    "クレジットがあればすぐ話す。キーは上級者向け。",
   );
   const [searching, setSearching] = useState(false);
   const [ready, setReady] = useState({
@@ -58,13 +72,22 @@ export function VoicePanel() {
     xai: false,
     google: false,
   });
+  const [preferByok, setPreferByok] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playerRef = useRef<PcmPlayer | null>(null);
+  const hostedSidRef = useRef<string | null>(null);
+  const heartbeatRef = useRef<number | null>(null);
 
   const engine = getLiveEngine(engineId);
+  const useHosted =
+    !preferByok &&
+    hostedAvailable &&
+    hostedEngines.includes(engineId) &&
+    balance > 0;
 
   useEffect(() => {
     const keys = loadKeys();
@@ -73,7 +96,12 @@ export function VoicePanel() {
       xai: Boolean(keys.xai),
       google: Boolean(keys.google),
     });
+    void refreshCredits();
     return () => {
+      if (heartbeatRef.current != null) {
+        window.clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
       wsRef.current?.close();
       wsRef.current = null;
       processorRef.current?.disconnect();
@@ -85,9 +113,66 @@ export function VoicePanel() {
       void playerRef.current?.close().catch(() => undefined);
       playerRef.current = null;
     };
-  }, []);
+  }, [refreshCredits]);
+
+  function clearHeartbeat() {
+    if (heartbeatRef.current != null) {
+      window.clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+  }
+
+  async function endHostedSession() {
+    const sid = hostedSidRef.current;
+    hostedSidRef.current = null;
+    clearHeartbeat();
+    if (!sid) return;
+    try {
+      await fetch("/api/voice/hosted/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sid }),
+      });
+      void refreshCredits();
+    } catch {
+      // ignore
+    }
+  }
+
+  function startHeartbeat(sid: string) {
+    clearHeartbeat();
+    heartbeatRef.current = window.setInterval(() => {
+      void (async () => {
+        try {
+          const res = await fetch("/api/voice/hosted/heartbeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sid }),
+          });
+          const data = (await res.json()) as {
+            shouldStop?: boolean;
+            balance?: number;
+            reason?: string;
+          };
+          if (data.shouldStop) {
+            setLog(
+              data.reason === "insufficient"
+                ? "クレジット不足のため切断しました。"
+                : "セッション上限のため切断しました。",
+            );
+            await stop();
+          } else if (typeof data.balance === "number") {
+            useCreditStore.setState({ balance: data.balance });
+          }
+        } catch {
+          // 一時失敗は無視
+        }
+      })();
+    }, 15_000);
+  }
 
   async function teardown() {
+    await endHostedSession();
     wsRef.current?.close();
     wsRef.current = null;
     processorRef.current?.disconnect();
@@ -126,16 +211,96 @@ export function VoicePanel() {
     mute.connect(audioCtx.destination);
   }
 
-  async function startOpenai() {
-    const key = loadKeys().openai;
-    if (!key) throw new Error("設定タブで OpenAI API キーを保存してください。");
+  async function resolveAuth(engineWanted: LiveEngineId): Promise<{
+    mode: "hosted" | "byok";
+    secret?: string;
+    accessToken?: string;
+    sid?: string;
+  }> {
+    if (useHosted) {
+      setLog("Hosted セッションを開始中…");
+      const res = await fetch("/api/voice/hosted/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engine: engineWanted }),
+      });
+      const data = (await res.json()) as HostedStart;
+      if (!res.ok) throw new Error(data.error || "Hosted 開始に失敗");
+      hostedSidRef.current = data.sid;
+      startHeartbeat(data.sid);
+      return {
+        mode: "hosted",
+        secret: data.secret,
+        accessToken: data.accessToken,
+        sid: data.sid,
+      };
+    }
 
-    setLog("OpenAI ephemeral token を発行中…");
+    if (engineWanted === "gpt-live") {
+      const key = loadKeys().openai;
+      if (!key)
+        throw new Error(
+          "設定タブで OpenAI API キーを保存するか、クレジットを購入してください。",
+        );
+      const tokenRes = await fetch("/api/voice/ephemeral", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "X-Presence-Engine": "gpt-live",
+        },
+      });
+      if (!tokenRes.ok) {
+        throw new Error((await tokenRes.text()) || "token 発行に失敗");
+      }
+      const secret = extractSecret(
+        (await tokenRes.json()) as EphemeralResponse,
+      );
+      if (!secret) throw new Error("ephemeral token が応答にありません");
+      return { mode: "byok", secret };
+    }
+
+    if (engineWanted === "gemini-live") {
+      const key = loadKeys().google;
+      if (!key) {
+        throw new Error(
+          "設定タブで Google API キーを保存するか、クレジットを購入してください。",
+        );
+      }
+      try {
+        const tokenRes = await fetch("/api/voice/ephemeral", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "X-Presence-Engine": "gemini-live",
+          },
+        });
+        if (!tokenRes.ok) {
+          throw new Error((await tokenRes.text()) || "ephemeral 失敗");
+        }
+        const tokenJson = (await tokenRes.json()) as {
+          name?: string;
+          token?: string;
+          value?: string;
+        };
+        const access = tokenJson.name ?? tokenJson.token ?? tokenJson.value;
+        if (!access) throw new Error("token 欠落");
+        return { mode: "byok", accessToken: access };
+      } catch (e) {
+        console.warn("[presence gemini ephemeral]", e);
+        return { mode: "byok", secret: key };
+      }
+    }
+
+    const key = loadKeys().xai;
+    if (!key)
+      throw new Error(
+        "設定タブで xAI API キーを保存するか、クレジットを購入してください。",
+      );
     const tokenRes = await fetch("/api/voice/ephemeral", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
-        "X-Presence-Engine": "gpt-live",
+        "X-Presence-Engine": "grok-voice",
       },
     });
     if (!tokenRes.ok) {
@@ -143,6 +308,12 @@ export function VoicePanel() {
     }
     const secret = extractSecret((await tokenRes.json()) as EphemeralResponse);
     if (!secret) throw new Error("ephemeral token が応答にありません");
+    return { mode: "byok", secret };
+  }
+
+  async function startOpenai() {
+    const auth = await resolveAuth("gpt-live");
+    if (!auth.secret) throw new Error("secret 欠落");
 
     const meta = await fetch("/api/voice/session?engine=gpt-live").then((r) =>
       r.json(),
@@ -158,7 +329,7 @@ export function VoicePanel() {
 
     const ws = new WebSocket(meta.endpoint as string, [
       "realtime",
-      `openai-insecure-api-key.${secret}`,
+      `openai-insecure-api-key.${auth.secret}`,
     ]);
     wsRef.current = ws;
 
@@ -215,44 +386,24 @@ export function VoicePanel() {
   }
 
   async function startGemini() {
-    const key = loadKeys().google;
-    if (!key) throw new Error("設定タブで Google API キーを保存してください。");
-
-    setLog("Gemini ephemeral token を発行中…");
+    const auth = await resolveAuth("gemini-live");
     const meta = await fetch("/api/voice/session?engine=gemini-live").then(
       (r) => r.json(),
     );
 
     let endpoint: string;
-    try {
-      const tokenRes = await fetch("/api/voice/ephemeral", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "X-Presence-Engine": "gemini-live",
-        },
-      });
-      if (!tokenRes.ok) {
-        throw new Error((await tokenRes.text()) || "ephemeral 失敗");
-      }
-      const tokenJson = (await tokenRes.json()) as {
-        name?: string;
-        token?: string;
-      };
-      const access =
-        tokenJson.name ??
-        tokenJson.token ??
-        (tokenJson as { value?: string }).value;
-      if (!access) throw new Error("token 欠落");
-      endpoint = `${meta.endpointEphemeral as string}?access_token=${encodeURIComponent(access)}`;
-      setLog("Gemini Live（ephemeral）に接続中…");
-    } catch (e) {
-      // フォールバック: キーを query に載せる（BYOK 妥協）。失敗理由をログに残す。
-      console.warn("[presence gemini ephemeral]", e);
-      endpoint = `${meta.endpoint as string}?key=${encodeURIComponent(key)}`;
+    if (auth.accessToken) {
+      endpoint = `${meta.endpointEphemeral as string}?access_token=${encodeURIComponent(auth.accessToken)}`;
       setLog(
-        "ephemeral 失敗のため key= で接続します。AI Studio の Live 権限を確認してください…",
+        auth.mode === "hosted"
+          ? "Gemini Live（Hosted）に接続中…"
+          : "Gemini Live（ephemeral）に接続中…",
       );
+    } else if (auth.mode === "byok" && auth.secret) {
+      endpoint = `${meta.endpoint as string}?key=${encodeURIComponent(auth.secret)}`;
+      setLog("key= で接続します…");
+    } else {
+      throw new Error("Gemini token 欠落");
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -336,22 +487,8 @@ export function VoicePanel() {
   }
 
   async function startGrok() {
-    const key = loadKeys().xai;
-    if (!key) throw new Error("設定タブで xAI API キーを保存してください。");
-
-    setLog("xAI ephemeral token を発行中…");
-    const tokenRes = await fetch("/api/voice/ephemeral", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "X-Presence-Engine": "grok-voice",
-      },
-    });
-    if (!tokenRes.ok) {
-      throw new Error((await tokenRes.text()) || "token 発行に失敗");
-    }
-    const secret = extractSecret((await tokenRes.json()) as EphemeralResponse);
-    if (!secret) throw new Error("ephemeral token が応答にありません");
+    const auth = await resolveAuth("grok-voice");
+    if (!auth.secret) throw new Error("secret 欠落");
 
     const meta = await fetch("/api/voice/session?engine=grok-voice").then((r) =>
       r.json(),
@@ -366,7 +503,7 @@ export function VoicePanel() {
     mediaRef.current = stream;
 
     const ws = new WebSocket(meta.endpoint as string, [
-      `xai-client-secret.${secret}`,
+      `xai-client-secret.${auth.secret}`,
     ]);
     wsRef.current = ws;
 
@@ -423,9 +560,20 @@ export function VoicePanel() {
   }
 
   async function start() {
-    if (!canUseLiveEngine(plan, engineId)) {
+    const allowed = canUseLiveEngineMode({
+      mode: useHosted ? "hosted" : "byok",
+      plan,
+      engine: engineId,
+      hostedEngines,
+      balance,
+    });
+    if (!allowed) {
       setPhase("error");
-      setLog("このエンジンは Presence Pro で利用できます。プランタブへ。");
+      setLog(
+        useHosted || hostedAvailable
+          ? "クレジット不足、またはこのエンジンは未公開です。プランタブへ。"
+          : "このエンジンは Presence Pro（BYOK）で利用できます。プランタブへ。",
+      );
       return;
     }
     setPhase("connecting");
@@ -435,7 +583,10 @@ export function VoicePanel() {
       else if (engineId === "gemini-live") await startGemini();
       else await startGrok();
       setPhase("live");
-      setLog(`聞いています（${engine.label}）。「調べて」で検索。`);
+      setLog(
+        `聞いています（${engine.label}${useHosted ? " · Hosted" : " · BYOK"}）。「調べて」で検索。`,
+      );
+      void refreshCredits();
     } catch (e) {
       setPhase("error");
       setSearching(false);
@@ -463,17 +614,39 @@ export function VoicePanel() {
         ? ready.google
         : ready.xai;
 
+  const canStart = useHosted
+    ? hostedEngines.includes(engineId) && balance > 0
+    : keyOk &&
+      canUseLiveEngineMode({
+        mode: "byok",
+        plan,
+        engine: engineId,
+        hostedEngines,
+        balance,
+      });
+
   return (
     <div className="flex min-h-[calc(100dvh-5.5rem)] flex-col px-4 py-5">
       <h1 className="font-display text-2xl tracking-wide">音声</h1>
       <p className="mt-1 text-sm text-mist">
-        GPT Live · Gemini Live · Grok Voice。自分のキーでフルデュプレックス。
+        {useHosted
+          ? `Hosted · 残高 ${balance} クレジット`
+          : "BYOK · 自分のキーで接続"}
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         {LIVE_ENGINES.map((e) => {
           const selected = e.id === engineId;
-          const locked = !canUseLiveEngine(plan, e.id);
+          const hostedOk =
+            hostedAvailable && hostedEngines.includes(e.id) && balance > 0;
+          const byokOk = canUseLiveEngineMode({
+            mode: "byok",
+            plan,
+            engine: e.id,
+            hostedEngines,
+            balance,
+          });
+          const locked = preferByok ? !byokOk : !(hostedOk || byokOk);
           const has =
             e.provider === "openai"
               ? ready.openai
@@ -496,20 +669,39 @@ export function VoicePanel() {
                 {e.label}
               </span>
               <span className="mt-0.5 block text-[10px] leading-tight opacity-80">
-                {locked ? "Pro" : has ? e.hint : "キー未設定"}
+                {locked
+                  ? preferByok
+                    ? "Pro"
+                    : "クレジット"
+                  : hostedOk && !preferByok
+                    ? "Hosted"
+                    : has
+                      ? e.hint
+                      : "キー未設定"}
               </span>
             </button>
           );
         })}
       </div>
-      {plan === "free" && (
-        <p className="mt-2 text-xs text-mist">
-          Free は Grok Voice のみ。{" "}
+
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-mist">
+        {balance <= 0 && (
           <Link href="/app/billing" className="text-amber">
-            Pro で三本柱
+            クレジットを買う
           </Link>
-        </p>
-      )}
+        )}
+        {(ready.openai || ready.xai || ready.google) && (
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={preferByok}
+              disabled={phase === "live" || phase === "connecting"}
+              onChange={(e) => setPreferByok(e.target.checked)}
+            />
+            BYOK を使う
+          </label>
+        )}
+      </div>
 
       <div className="mt-10 flex flex-1 flex-col items-center justify-center">
         <button
@@ -538,9 +730,11 @@ export function VoicePanel() {
         <p className="mt-6 max-w-sm text-center text-sm leading-relaxed text-mist">
           {log}
         </p>
-        {!keyOk && (
+        {!canStart && phase === "idle" && (
           <p className="mt-3 text-xs text-amber">
-            {engine.label} のキー未設定 · 設定タブへ
+            {useHosted || (!preferByok && hostedAvailable)
+              ? "クレジット不足 · プランタブへ"
+              : `${engine.label} のキー未設定 · 設定タブへ`}
           </p>
         )}
       </div>

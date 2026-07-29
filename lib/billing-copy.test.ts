@@ -6,13 +6,14 @@ import {
 } from "@/lib/billing-copy";
 
 describe("billing copy", () => {
-  it("states API vs subscription clearly", () => {
-    expect(BILLING_TAGLINE).toMatch(/API/);
-    expect(BILLING_TAGLINE).toMatch(/別/);
+  it("states Hosted credits as main line", () => {
+    expect(BILLING_TAGLINE).toMatch(/Hosted|クレジット/);
+    expect(BILLING_TAGLINE).toMatch(/BYOK/);
   });
 
-  it("warns about live per-minute cost", () => {
-    expect(BILLING_VOICE_WARNING).toMatch(/分/);
+  it("warns about live credit consumption", () => {
+    expect(BILLING_VOICE_WARNING).toMatch(/クレジット|分/);
+    expect(BILLING_VOICE_WARNING).toMatch(/話し放題ではありません/);
   });
 
   it("lists forbidden marketing phrases", () => {

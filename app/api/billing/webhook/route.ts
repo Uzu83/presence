@@ -1,10 +1,13 @@
+import { creditWallet } from "@/lib/credits/ledger";
+import { packById } from "@/lib/credits/types";
 import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
 /**
- * Stripe webhook。Cookie はブラウザ専用のため失効の強制は /api/billing/me
- * ＋ Portal 再訪で行う。ここは監査ログ。
+ * Stripe webhook。
+ * - Pro サブスク: 監査ログ（Cookie は success / me 側）
+ * - クレジット購入: success ルートと二重でも idempotent に加算
  */
 export async function POST(req: Request) {
   const stripe = getStripe();
@@ -18,10 +21,29 @@ export async function POST(req: Request) {
 
   try {
     const event = stripe.webhooks.constructEvent(body, sig, secret);
-    if (
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      if (session.metadata?.presence_kind === "credits") {
+        const packId = session.metadata.pack_id ?? "starter";
+        const pack = packById(packId);
+        const credits = Number(session.metadata.credits) || pack?.credits || 0;
+        const wid = session.metadata.wid;
+        if (wid && credits > 0) {
+          await creditWallet({
+            wid,
+            amount: credits,
+            type: "purchase",
+            note: `pack:${packId}`,
+            ref: session.id,
+            idempotencyKey: `stripe_cs_${session.id}`,
+          });
+        }
+      }
+      console.info("[presence stripe]", event.type, event.id);
+    } else if (
       event.type === "customer.subscription.deleted" ||
-      event.type === "customer.subscription.updated" ||
-      event.type === "checkout.session.completed"
+      event.type === "customer.subscription.updated"
     ) {
       console.info("[presence stripe]", event.type, event.id);
     }
