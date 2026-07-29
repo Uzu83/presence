@@ -24,8 +24,8 @@ export default function HomePage() {
           自分のモデルで、資料の横で、話す。
         </h1>
         <p className="animate-rise-delay mt-4 max-w-[34ch] text-base leading-relaxed text-mist">
-          Grok と GPT を API クレジットで切替。NotebookLM
-          風のプロジェクト。スマホからフルデュプレックス音声へ。
+          GPT Live · Gemini Live · Grok
+          Voice。資料付き会話と「調べて」検索を、スマホから。
         </p>
 
         <div className="mt-auto flex flex-col gap-3 pt-16">

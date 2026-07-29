@@ -1,10 +1,11 @@
 # Presence
 
-自分の API クレジットで Grok / GPT と話す、スマホ優先の Web / PWA。
+自分の API クレジットで話す、スマホ優先の Web / PWA。
 
-- モデル切替（OpenAI / xAI）
+- **GPT Live · Gemini Live · Grok Voice**（三本柱）
+- テキストも OpenAI / xAI 切替
 - プロジェクトにファイルを置いて会話（NotebookLM 風）
-- Grok Voice フルデュプレックス（ephemeral token）
+- 「調べて」でウェブ検索
 - 将来: Discord / Meet / Zoom 同席
 
 ## 開発
