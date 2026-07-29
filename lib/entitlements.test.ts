@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { canUseLiveEngine, entitlementsFor } from "@/lib/entitlements";
+import {
+  canUseLiveEngine,
+  canUseLiveEngineMode,
+  entitlementsFor,
+} from "@/lib/entitlements";
 
 describe("entitlements", () => {
   it("free locks to one live engine", () => {
@@ -20,5 +24,26 @@ describe("entitlements", () => {
   it("rejects locked engine on free", () => {
     expect(canUseLiveEngine("free", "gpt-live")).toBe(false);
     expect(canUseLiveEngine("free", "grok-voice")).toBe(true);
+  });
+
+  it("hosted unlocks by balance and published engines", () => {
+    expect(
+      canUseLiveEngineMode({
+        mode: "hosted",
+        plan: "free",
+        engine: "gpt-live",
+        hostedEngines: ["gpt-live", "grok-voice"],
+        balance: 10,
+      }),
+    ).toBe(true);
+    expect(
+      canUseLiveEngineMode({
+        mode: "hosted",
+        plan: "free",
+        engine: "gpt-live",
+        hostedEngines: ["gpt-live"],
+        balance: 0,
+      }),
+    ).toBe(false);
   });
 });

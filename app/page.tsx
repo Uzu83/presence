@@ -22,7 +22,7 @@ export default function HomePage() {
           Presence
         </p>
         <h1 className="animate-rise-delay mt-5 max-w-[16ch] text-2xl font-medium leading-snug text-paper sm:text-3xl">
-          自分のモデルで、資料の横で、話す。
+          クレジットを買って、すぐ話す。
         </h1>
         <p className="animate-rise-delay mt-4 max-w-[34ch] text-base leading-relaxed text-mist">
           GPT Live · Gemini Live · Grok
@@ -40,10 +40,10 @@ export default function HomePage() {
             会話をはじめる
           </Link>
           <Link
-            href="/app/settings"
+            href="/app/billing"
             className="flex min-h-12 items-center justify-center rounded-2xl border border-line/80 bg-fog/50 text-sm text-paper backdrop-blur-sm"
           >
-            API キーを設定
+            クレジットを買う
           </Link>
           <p className="text-center text-xs text-mist/80">
             ホーム画面に追加してアプリのように使えます

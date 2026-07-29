@@ -4,13 +4,16 @@
  */
 
 export const BILLING_TAGLINE =
-  "従量は各社 API の請求です。ChatGPT Plus / Gemini Advanced / SuperGrok のサブスク本体とは別です。";
+  "本線は Hosted クレジット（運営キー）。残高の分だけ話せます。BYOK は上級者向けです。";
 
 export const BILLING_VOICE_WARNING =
-  "Live 音声は分単位で各社に課金されやすいです。利用状況は各社のダッシュボードで確認してください。";
+  "Hosted Live はクレジットを分単位で消費します。残高ゼロで切断します。話し放題ではありません。";
 
 export const BILLING_KEYS_HINT =
-  "API キーはこの端末にだけ保存します。サーバには保存しません（リクエスト時のみ転送）。";
+  "通常は API キー不要です。自分のキーで使う場合だけ、下の上級者設定を開いてください。キーはこの端末のみに保存します。";
+
+export const BILLING_CREDITS_HINT =
+  "クレジットは Presence の音声・テキスト役務専用です。現金の預かりや送金ではありません。有効期限・返金は利用規約を参照してください。";
 
 export const BILLING_FORBIDDEN_HINTS = [
   "Plus があれば無料",
