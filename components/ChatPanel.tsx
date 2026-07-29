@@ -12,10 +12,13 @@ import {
 } from "@/lib/idb";
 import { loadKeys } from "@/lib/keys";
 import { chatModels } from "@/lib/models";
+import { hasSearchIntent, SEARCH_POLICY_JA } from "@/lib/search-intent";
 import { useAppStore } from "@/store/app-store";
 
-const BASE_SYSTEM =
-  "あなたは Presence。簡潔で実務的なアシスタントです。ユーザーが日本語なら日本語で答える。";
+const BASE_SYSTEM = [
+  "あなたは Presence。簡潔で実務的なアシスタントです。ユーザーが日本語なら日本語で答える。",
+  SEARCH_POLICY_JA,
+].join(" ");
 
 export function ChatPanel() {
   const hydrated = useAppStore((s) => s.hydrated);
@@ -32,6 +35,7 @@ export function ChatPanel() {
 
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -59,6 +63,8 @@ export function ChatPanel() {
 
     setError(null);
     setInput("");
+    const wantSearch = hasSearchIntent(text);
+    setSearching(wantSearch);
 
     const userMsg: ChatMessage = {
       id: newId("msg"),
@@ -97,11 +103,13 @@ export function ChatPanel() {
       await streamChat({
         modelId,
         apiKey,
+        search: wantSearch,
         signal: controller.signal,
         messages: [
           { role: "system", content: system },
           ...next.map((m) => ({ role: m.role, content: m.content })),
         ],
+        onSearching: setSearching,
         onDelta: (delta) => {
           assembled += delta;
           const cur = useAppStore.getState().messages;
@@ -124,6 +132,7 @@ export function ChatPanel() {
       setMessages(next);
     } finally {
       setStreaming(false);
+      setSearching(false);
       abortRef.current = null;
     }
   }
@@ -152,9 +161,11 @@ export function ChatPanel() {
               {activeName}
             </p>
             <p className="text-xs text-mist">
-              {files.length > 0
-                ? `資料 ${files.length} 件を参照中`
-                : "資料なし · 設定でキーを追加"}
+              {searching
+                ? "ウェブを検索中…"
+                : files.length > 0
+                  ? `資料 ${files.length} 件を参照中`
+                  : "資料なし · 「調べて」でウェブ検索"}
             </p>
           </div>
           <button
@@ -198,7 +209,12 @@ export function ChatPanel() {
         {messages.length === 0 && (
           <div className="rounded-2xl border border-dashed border-line/80 bg-panel/40 p-5 text-sm text-mist">
             スマホから、自分の API
-            クレジットで話せる会話室。資料タブでファイルを置くと、このプロジェクトについて聞けます。
+            クレジットで話せる会話室。「調べて」と言うとウェブ検索します。資料タブのファイルも根拠にできます。
+          </div>
+        )}
+        {searching && (
+          <div className="mr-6 rounded-2xl border border-signal/40 bg-signal/10 px-3.5 py-2 text-xs text-signal">
+            検索しています…
           </div>
         )}
         {messages.map((m) => (

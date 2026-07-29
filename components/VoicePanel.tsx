@@ -27,11 +27,20 @@ function stopTracks(stream: MediaStream | null) {
   }
 }
 
+function isSearchEvent(type: string): boolean {
+  return (
+    type.includes("web_search") ||
+    type.includes("web_search_call") ||
+    type.includes("server_side_tool")
+  );
+}
+
 export function VoicePanel() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState(
-    "ボタンを押して話す。割り込み可能なフルデュプレックス。",
+    "ボタンを押して話す。「調べて」でウェブ検索します。",
   );
+  const [searching, setSearching] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRef = useRef<MediaStream | null>(null);
@@ -128,12 +137,27 @@ export function VoicePanel() {
           const event = JSON.parse(String(ev.data)) as {
             type?: string;
             delta?: string;
+            name?: string;
           };
+          const type = event.type ?? "";
+          if (isSearchEvent(type)) {
+            const done =
+              type.endsWith(".completed") ||
+              type.endsWith(".done") ||
+              type.includes("finished");
+            setSearching(!done);
+            setLog(done ? "検索結果をまとめています…" : "ウェブを検索中…");
+          }
           if (
-            event.type === "response.output_audio.delta" ||
-            event.type === "response.audio.delta"
+            type === "response.output_audio.delta" ||
+            type === "response.audio.delta"
           ) {
             if (event.delta) player.playPcm16(event.delta);
+            setSearching(false);
+          }
+          if (type === "response.done" || type === "response.completed") {
+            setSearching(false);
+            setLog("聞いています。「調べて」で検索できます。");
           }
         } catch {
           // ignore non-json
@@ -142,6 +166,7 @@ export function VoicePanel() {
 
       ws.onclose = () => {
         setPhase("idle");
+        setSearching(false);
         setLog("接続が閉じました。");
         void teardown();
       };
@@ -172,9 +197,11 @@ export function VoicePanel() {
       mute.connect(audioCtx.destination);
 
       setPhase("live");
-      setLog("聞いています。話しかけてください（割り込み可）。");
+      setSearching(false);
+      setLog("聞いています。「調べて」と言うと検索します（割り込み可）。");
     } catch (e) {
       setPhase("error");
+      setSearching(false);
       setLog((e as Error).message);
       await teardown();
     }
@@ -183,6 +210,7 @@ export function VoicePanel() {
   async function stop() {
     await teardown();
     setPhase("idle");
+    setSearching(false);
     setLog("停止しました。");
   }
 
@@ -190,8 +218,7 @@ export function VoicePanel() {
     <div className="flex min-h-[calc(100dvh-5.5rem)] flex-col px-4 py-5">
       <h1 className="font-display text-2xl tracking-wide">音声</h1>
       <p className="mt-1 text-sm text-mist">
-        Grok Voice フルデュプレックス。キーは ephemeral token
-        に交換してから接続します。
+        Grok Voice フルデュプレックス。「調べて」「検索して」でウェブ検索。
       </p>
 
       <div className="mt-10 flex flex-1 flex-col items-center justify-center">
@@ -201,18 +228,22 @@ export function VoicePanel() {
             void (phase === "live" || phase === "connecting" ? stop() : start())
           }
           className={`flex h-36 w-36 items-center justify-center rounded-full border-2 text-lg font-semibold transition-transform active:scale-95 ${
-            phase === "live"
-              ? "animate-mic border-amber bg-amber text-ink"
-              : phase === "connecting"
-                ? "border-signal/60 bg-panel text-signal"
-                : "border-line bg-panel text-paper"
+            searching
+              ? "animate-mic border-signal bg-signal/20 text-signal"
+              : phase === "live"
+                ? "animate-mic border-amber bg-amber text-ink"
+                : phase === "connecting"
+                  ? "border-signal/60 bg-panel text-signal"
+                  : "border-line bg-panel text-paper"
           }`}
         >
-          {phase === "live"
-            ? "終了"
-            : phase === "connecting"
-              ? "接続中"
-              : "話す"}
+          {searching
+            ? "検索中"
+            : phase === "live"
+              ? "終了"
+              : phase === "connecting"
+                ? "接続中"
+                : "話す"}
         </button>
         <p className="mt-6 max-w-sm text-center text-sm leading-relaxed text-mist">
           {log}
@@ -223,8 +254,8 @@ export function VoicePanel() {
       </div>
 
       <div className="mt-auto rounded-2xl border border-line bg-panel/40 px-4 py-3 text-xs leading-relaxed text-mist">
-        この音声パイプの延長が Discord / Meet / Zoom
-        同席です。まずは手元のスマホでフルデュプレックスを完成させます。
+        検索は xAI の
+        web_search（サーバ側）。聞きながら「それ調べて」と言うだけで動きます。
       </div>
     </div>
   );
