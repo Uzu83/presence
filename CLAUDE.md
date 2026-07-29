@@ -18,6 +18,7 @@
 | 開発 | `pnpm dev` |
 | 検証 | `pnpm check`（lint → tsc → test → build） |
 | デプロイ | `vercel`（preview）→ `vercel --prod` |
+| Pro 課金 | Stripe: `STRIPE_*` + `PRESENCE_SESSION_SECRET`（`.env.example`）。BYOK 維持 |
 
 ## アーキテクチャの要点
 

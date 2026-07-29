@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { BillingNotice } from "@/components/BillingNotice";
+import { canUseLiveEngine } from "@/lib/entitlements";
 import { loadKeys } from "@/lib/keys";
 import {
   getLiveEngine,
@@ -12,6 +15,7 @@ import {
   floatTo16BitPCM,
   PcmPlayer,
 } from "@/lib/voice-audio";
+import { usePlanStore } from "@/store/plan-store";
 
 type Phase = "idle" | "connecting" | "live" | "error";
 
@@ -42,6 +46,7 @@ function isSearchEvent(type: string): boolean {
 }
 
 export function VoicePanel() {
+  const plan = usePlanStore((s) => s.plan);
   const [engineId, setEngineId] = useState<LiveEngineId>("grok-voice");
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState(
@@ -213,10 +218,43 @@ export function VoicePanel() {
     const key = loadKeys().google;
     if (!key) throw new Error("設定タブで Google API キーを保存してください。");
 
-    setLog("Gemini Live に接続中…");
+    setLog("Gemini ephemeral token を発行中…");
     const meta = await fetch("/api/voice/session?engine=gemini-live").then(
       (r) => r.json(),
     );
+
+    let endpoint: string;
+    try {
+      const tokenRes = await fetch("/api/voice/ephemeral", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "X-Presence-Engine": "gemini-live",
+        },
+      });
+      if (!tokenRes.ok) {
+        throw new Error((await tokenRes.text()) || "ephemeral 失敗");
+      }
+      const tokenJson = (await tokenRes.json()) as {
+        name?: string;
+        token?: string;
+      };
+      const access =
+        tokenJson.name ??
+        tokenJson.token ??
+        (tokenJson as { value?: string }).value;
+      if (!access) throw new Error("token 欠落");
+      endpoint = `${meta.endpointEphemeral as string}?access_token=${encodeURIComponent(access)}`;
+      setLog("Gemini Live（ephemeral）に接続中…");
+    } catch (e) {
+      // フォールバック: キーを query に載せる（BYOK 妥協）。失敗理由をログに残す。
+      console.warn("[presence gemini ephemeral]", e);
+      endpoint = `${meta.endpoint as string}?key=${encodeURIComponent(key)}`;
+      setLog(
+        "ephemeral 失敗のため key= で接続します。AI Studio の Live 権限を確認してください…",
+      );
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -226,8 +264,6 @@ export function VoicePanel() {
     });
     mediaRef.current = stream;
 
-    // WHY query key: ブラウザ WS は Authorization 不可。BYOK の妥協。将来 ephemeral。
-    const endpoint = `${meta.endpoint as string}?key=${encodeURIComponent(key)}`;
     const ws = new WebSocket(endpoint);
     wsRef.current = ws;
 
@@ -387,6 +423,11 @@ export function VoicePanel() {
   }
 
   async function start() {
+    if (!canUseLiveEngine(plan, engineId)) {
+      setPhase("error");
+      setLog("このエンジンは Presence Pro で利用できます。プランタブへ。");
+      return;
+    }
     setPhase("connecting");
     setSearching(false);
     try {
@@ -398,7 +439,12 @@ export function VoicePanel() {
     } catch (e) {
       setPhase("error");
       setSearching(false);
-      setLog((e as Error).message);
+      const msg = (e as Error).message;
+      setLog(
+        engineId === "gemini-live"
+          ? `${msg} · モデル名変更・Live API 未有効・キー制限を疑ってください`
+          : msg,
+      );
       await teardown();
     }
   }
@@ -427,6 +473,7 @@ export function VoicePanel() {
       <div className="mt-4 grid grid-cols-3 gap-2">
         {LIVE_ENGINES.map((e) => {
           const selected = e.id === engineId;
+          const locked = !canUseLiveEngine(plan, e.id);
           const has =
             e.provider === "openai"
               ? ready.openai
@@ -449,12 +496,20 @@ export function VoicePanel() {
                 {e.label}
               </span>
               <span className="mt-0.5 block text-[10px] leading-tight opacity-80">
-                {has ? e.hint : "キー未設定"}
+                {locked ? "Pro" : has ? e.hint : "キー未設定"}
               </span>
             </button>
           );
         })}
       </div>
+      {plan === "free" && (
+        <p className="mt-2 text-xs text-mist">
+          Free は Grok Voice のみ。{" "}
+          <Link href="/app/billing" className="text-amber">
+            Pro で三本柱
+          </Link>
+        </p>
+      )}
 
       <div className="mt-10 flex flex-1 flex-col items-center justify-center">
         <button
@@ -490,9 +545,11 @@ export function VoicePanel() {
         )}
       </div>
 
-      <div className="mt-auto rounded-2xl border border-line bg-panel/40 px-4 py-3 text-xs leading-relaxed text-mist">
-        三本柱 GO。検索は各社のツール（OpenAI / Google Search / xAI
-        web_search）。このパイプの先が Discord / Meet / Zoom 同席。
+      <div className="mt-6">
+        <BillingNotice variant="voice" />
+      </div>
+      <div className="mt-3 rounded-2xl border border-line bg-panel/40 px-4 py-3 text-xs leading-relaxed text-mist">
+        検索は各社ツール。このパイプの先が Discord / Meet / Zoom 同席。
       </div>
     </div>
   );

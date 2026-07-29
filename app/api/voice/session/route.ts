@@ -47,24 +47,28 @@ export async function GET(req: Request) {
   }
 
   if (engineId === "gemini-live") {
+    const setup = {
+      setup: {
+        model: GEMINI_LIVE_MODEL,
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+        },
+        systemInstruction: {
+          parts: [{ text: LIVE_SYSTEM }],
+        },
+        tools: [{ googleSearch: {} }],
+      },
+    };
     return Response.json({
       engine: engineId,
-      // クライアントが ?key= を付与する
+      // ephemeral 成功時は Constrained + access_token（キーを WS に載せない）
+      endpointEphemeral:
+        "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained",
+      // フォールバック: BYOK で key=（発行失敗時のみ）
       endpoint:
         "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent",
-      authMode: "google-query-key",
-      setup: {
-        setup: {
-          model: GEMINI_LIVE_MODEL,
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-          },
-          systemInstruction: {
-            parts: [{ text: LIVE_SYSTEM }],
-          },
-          tools: [{ googleSearch: {} }],
-        },
-      },
+      authMode: "google-ephemeral-or-key",
+      setup,
       note: SEARCH_POLICY_JA,
     });
   }

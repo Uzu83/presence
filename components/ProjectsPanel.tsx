@@ -13,6 +13,7 @@ import {
   upsertProject,
 } from "@/lib/idb";
 import { useAppStore } from "@/store/app-store";
+import { usePlanStore } from "@/store/plan-store";
 
 export function ProjectsPanel() {
   const projects = useAppStore((s) => s.projects);
@@ -21,6 +22,7 @@ export function ProjectsPanel() {
   const setActiveProjectId = useAppStore((s) => s.setActiveProjectId);
   const files = useAppStore((s) => s.files);
   const setFiles = useAppStore((s) => s.setFiles);
+  const maxProjects = usePlanStore((s) => s.entitlements.maxProjects);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +33,12 @@ export function ProjectsPanel() {
   async function createProject() {
     const trimmed = name.trim();
     if (!trimmed) return;
+    if (projects.length >= maxProjects) {
+      setError(
+        `Free は資料プロジェクト ${maxProjects} 件まで。プランタブで Pro にすると増やせます。`,
+      );
+      return;
+    }
     const now = Date.now();
     const project: Project = {
       id: newId("prj"),

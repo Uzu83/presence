@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BillingNotice } from "@/components/BillingNotice";
+import { BILLING_KEYS_HINT } from "@/lib/billing-copy";
 import { emptyKeys, type KeyBag, loadKeys, maskKey, saveKey } from "@/lib/keys";
 import type { ProviderId } from "@/lib/models";
 
@@ -27,15 +30,10 @@ export function SettingsPanel() {
   return (
     <div className="px-4 py-5">
       <h1 className="font-display text-2xl tracking-wide">設定</h1>
-      <p className="mt-1 text-sm text-mist">
-        API
-        キーはこの端末にだけ保存します。サーバには保存しません（リクエスト時のみ転送）。
-      </p>
+      <p className="mt-1 text-sm text-mist">{BILLING_KEYS_HINT}</p>
 
-      <div className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm leading-relaxed text-paper">
-        ChatGPT Plus / Gemini Advanced / SuperGrok の
-        <strong className="text-amber">サブスク料金そのもの</strong>は API
-        と別です。Presence は各社の API クレジット（キー）を使います。
+      <div className="mt-4">
+        <BillingNotice />
       </div>
 
       {(
@@ -89,24 +87,41 @@ export function SettingsPanel() {
       ))}
 
       <section className="mt-10 border-t border-line/70 pt-6">
-        <h2 className="font-display text-xl">同席ロードマップ</h2>
+        <h2 className="font-display text-xl">同席ウェイトリスト</h2>
         <p className="mt-2 text-sm leading-relaxed text-mist">
-          いつか Discord / Google Meet / Zoom に Presence
-          が入ってくる仕組みを作ります。MVP は手元のスマホ
-          Web。通話ブリッジは別フェーズです。
+          Discord VC 同席（Phase 3）の興味だけ先に受け付ける。実装は Pro
+          黒字後（docs/decisions/005）。
         </p>
+        <a
+          className="mt-3 flex min-h-12 items-center justify-center rounded-xl border border-line bg-panel/60 text-sm text-paper"
+          href="mailto:2201100431bg@cyber-u.ac.jp?subject=Presence%20Discord%20waitlist"
+        >
+          Discord 同席に興味あり（メール）
+        </a>
         <ul className="mt-4 space-y-2 text-sm text-paper">
           <li className="rounded-xl border border-line bg-panel/50 px-3 py-3">
-            <span className="text-signal">今</span> · GPT Live · Gemini Live ·
-            Grok Voice · BYOK · 資料 · 「調べて」検索
+            <span className="text-signal">今</span> · BYOK · Pro ゲート · 三本柱
           </li>
           <li className="rounded-xl border border-line bg-panel/30 px-3 py-3 text-mist">
-            次 · Discord VC 同席 bot
+            次 · Discord VC 同席
           </li>
           <li className="rounded-xl border border-line bg-panel/30 px-3 py-3 text-mist">
-            その先 · Meet / Zoom ブリッジ
+            その先 · 同期 / Hosted Credits
           </li>
         </ul>
+        <p className="mt-4 text-xs text-mist">
+          <Link href="/legal/terms" className="text-amber">
+            利用規約
+          </Link>
+          {" · "}
+          <Link href="/legal/privacy" className="text-amber">
+            プライバシー
+          </Link>
+          {" · "}
+          <Link href="/app/billing" className="text-amber">
+            プラン
+          </Link>
+        </p>
       </section>
     </div>
   );
