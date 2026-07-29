@@ -2,9 +2,10 @@
  * Grok Voice はブラウザから wss://api.x.ai/v1/realtime へ直結するのが本線。
  * このルートは接続手順メタを返すだけ（キーはクライアント保有）。
  *
- * WHY-not サーバで WS 中継: Edge の長寿命 WS と課金リスク。MVP は直結。
- * 将来 ephemeral token が安定したらここで発行してキーを隠す。
+ * web_search を常時載せ、「調べて」でモデルがサーバ側検索する。
  */
+
+import { SEARCH_POLICY_JA } from "@/lib/search-intent";
 
 export const runtime = "edge";
 
@@ -17,9 +18,14 @@ export async function GET() {
       type: "session.update",
       session: {
         voice: "eve",
-        instructions:
+        instructions: [
           "You are Presence, a concise bilingual assistant. Prefer Japanese when the user speaks Japanese.",
+          SEARCH_POLICY_JA,
+          "When you start searching, briefly say you are looking it up, then answer from the results.",
+        ].join(" "),
         turn_detection: { type: "server_vad" },
+        // xAI サーバ側ツール。ユーザーが検索を促したらモデルがこれを呼ぶ。
+        tools: [{ type: "web_search" }],
       },
     },
   });

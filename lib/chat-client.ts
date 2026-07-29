@@ -10,8 +10,11 @@ export type StreamChatArgs = {
   modelId: ModelId;
   apiKey: string;
   messages: ChatTurn[];
+  /** 「調べて」検知時: Responses API + web_search */
+  search?: boolean;
   signal?: AbortSignal;
   onDelta: (text: string) => void;
+  onSearching?: (active: boolean) => void;
 };
 
 /**
@@ -37,6 +40,7 @@ export async function streamChat(args: StreamChatArgs): Promise<void> {
       model: args.modelId,
       messages: args.messages,
       stream: true,
+      search: Boolean(args.search),
     }),
     signal: args.signal,
   });
@@ -65,7 +69,11 @@ export async function streamChat(args: StreamChatArgs): Promise<void> {
       try {
         const json = JSON.parse(data) as {
           choices?: Array<{ delta?: { content?: string } }>;
+          presence?: { searching?: boolean };
         };
+        if (typeof json.presence?.searching === "boolean") {
+          args.onSearching?.(json.presence.searching);
+        }
         const delta = json.choices?.[0]?.delta?.content;
         if (delta) args.onDelta(delta);
       } catch {
