@@ -24,7 +24,8 @@
 - BYOK: キーは localStorage。`/api/chat` と `/api/voice/ephemeral` は都度ヘッダ転送のみ（永続化禁止）
 - プロジェクト/会話: IndexedDB（端末ローカル）。クラウド同期はまだやらない
 - Voice 三本柱: GPT Live (OpenAI Realtime) / Gemini Live / Grok Voice
-- Voice 認証: OpenAI・xAI は ephemeral、Gemini は query `key=`（ブラウザ制約の妥協）
+- **UX 北極星（004）**: 運営キー＋ユーザはクレジット/サブスクだけ（BYOK は上級者用）。課金実装は人間承認後
+- Voice 認証（現状）: OpenAI・xAI は ephemeral、Gemini は query `key=` → Hosted 化時に鍵をクライアントから消す
 - 「調べて」系: Voice は各社 tools、テキストは `hasSearchIntent` → Responses API + web_search
 - Discord / Meet / Zoom 同席はロードマップ。同じ音声パイプの延長として設計する
 
